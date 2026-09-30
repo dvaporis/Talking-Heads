@@ -1,6 +1,11 @@
 \documentclass[border=10pt]{standalone}
 \usepackage{tikz}
+\usepackage{amsmath}
 \usetikzlibrary{positioning, arrows.meta, fit, backgrounds, shapes.geometric, calc}
+
+% Architecture of the visual model at deployment (inference) time.
+% Training-only components (loss terms) are described in the Training chapter
+% and are therefore not shown here. Symbols follow the Methodology chapter.
 
 \begin{document}
 \begin{tikzpicture}[
@@ -16,11 +21,6 @@
         fill=blue!4, minimum width=46mm, minimum height=7mm,
         align=center, font=\scriptsize\ttfamily
     },
-    branch/.style={
-        rectangle, draw=black!70, thick, rounded corners=2pt,
-        fill=orange!12, minimum width=52mm, minimum height=9mm,
-        align=center, inner sep=3pt
-    },
     iolabel/.style={
         rectangle, draw=none, fill=none, align=center, font=\scriptsize\itshape
     },
@@ -32,10 +32,10 @@
 ]
 
 % ---------------- Input ----------------
-\node[iolabel] (input_lbl) {Input videos\\ $(B, T, C, H, W)$};
+\node[iolabel] (input_lbl) {input video (lip region)\\ $(B, T, C, H, W)$};
 
 % ---------------- Conv3D Frontend ----------------
-\node[block, below=of input_lbl] (frontend_title) {\textbf{Conv3DFrontEnd}};
+\node[block, below=of input_lbl] (frontend_title) {\textbf{Conv3D Frontend}};
 \node[subblock, below=3mm of frontend_title] (l1) {layer1: depthwise 3D conv $3\!\to\!32$, spatial stride 2};
 \node[subblock, below=1mm of l1] (l2) {layer2: depthwise 3D conv $32\!\to\!64$, spatial stride 2};
 \node[subblock, below=1mm of l2] (l3) {layer3: depthwise 3D conv $64\!\to\!128$, spatial stride 2};
@@ -44,27 +44,22 @@
 
 \node[groupbox, fit=(frontend_title)(l1)(l2)(l3)(pool)(proj), label={[font=\scriptsize,text=black!60]above left:temporal stride $=1$ throughout}] (frontendbox) {};
 
-\node[iolabel, below=9mm of proj] (feat_lbl) {frame features $(B, T, h)$};
+\node[iolabel, below=9mm of proj] (feat_lbl) {visual features $(B, T, h)$};
 
 % ---------------- Positional Encoding ----------------
-\node[block, below=9mm of feat_lbl] (posenc) {Sinusoidal Positional Encoding\\[1pt] \scriptsize (sin/cos, +Dropout)};
+\node[block, below=9mm of feat_lbl] (posenc) {Positional Encoding\\[1pt] \scriptsize (sinusoidal, + Dropout)};
 
-% ---------------- Sequence Encoder (bilstm) ----------------
+% ---------------- Sequence Encoder (two variants) ----------------
 \node[block, below=of posenc, fill=green!10] (enc_title) {\textbf{Sequence Encoder}};
-\node[subblock, below=3mm of enc_title, fill=green!5] (bilstm) {\texttt{bilstm}: 2-layer BiLSTM, out dim $=2h$};
-\node[groupbox, fit=(enc_title)(bilstm)] (encbox) {};
+\node[subblock, below=3mm of enc_title, fill=green!5] (bilstm) {BiLSTM (default): 2 layers, out dim $=2h$};
+\node[subblock, below=1mm of bilstm, fill=green!5] (transformer) {or Transformer: 2 layers, 4 heads, out dim $=h$};
+\node[groupbox, fit=(enc_title)(bilstm)(transformer)] (encbox) {};
 
 \node[block, below=8mm of encbox] (norm) {LayerNorm $\to$ Dropout};
 
-\node[block, below=of norm] (classifier) {Linear classifier $\to$ vocab$+1$ (blank$=0$)};
+\node[block, below=of norm] (classifier) {\textbf{Classification Head}\\[1pt] \scriptsize Linear $\to N_p+1$ classes (phonemes + blank)};
 
-\node[iolabel, below=9mm of classifier] (logits_lbl) {\texttt{logits} $(B, T, V{+}1)$};
-
-% ---------------- Loss branches ----------------
-\node[branch, below=16mm of logits_lbl, xshift=-33mm] (framece) {\textbf{Frame-CE branch}\\[2pt] \scriptsize KL vs.\ viseme-aware\\ soft targets + insertion\\ penalty, weighted by\\ audio-alignment confidence};
-\node[branch, below=16mm of logits_lbl, xshift=33mm] (ctc) {\textbf{Auxiliary CTC branch}\\[2pt] \scriptsize \texttt{nn.CTCLoss} on\\ collapsed canonical\\ phoneme sequence};
-
-\node[block, below=14mm of $(framece.south)!0.5!(ctc.south)$, fill=red!10] (total) {\textbf{VisemeAwareFrameLoss}\\[1pt] \scriptsize total $=$ frame\_loss $+$ ctc\_weight $\times$ ctc\_loss};
+\node[iolabel, below=9mm of classifier] (logits_lbl) {per-frame logits $(B, T, N_p{+}1)$};
 
 % ---------------- Arrows ----------------
 \draw[arr] (input_lbl) -- (frontendbox);
@@ -74,11 +69,6 @@
 \draw[arr] (encbox) -- (norm);
 \draw[arr] (norm) -- (classifier);
 \draw[arr] (classifier.south) -- (logits_lbl.north);
-
-\draw[arr] (logits_lbl.south) -| (framece.north);
-\draw[arr] (logits_lbl.south) -| (ctc.north);
-\draw[arr] (framece.south) |- (total.west);
-\draw[arr] (ctc.south) |- (total.east);
 
 \end{tikzpicture}
 \end{document}
