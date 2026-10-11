@@ -85,7 +85,7 @@ VISEME_GROUPS: Dict[str, List[str]] = {
     "dental":         ["θ", "ð"],
     "alveolar":       ["t", "d", "n", "s", "z", "l"],
     "postalveolar":   ["ʃ", "ʒ", "tʃ", "dʒ"],
-    "velar":          ["k", "g", "ŋ"],
+    "velar":          ["k", "g", "ɡ", "ŋ"],   # eSpeak emits IPA ɡ (U+0261), not ASCII g
     "glottal":        ["h"],
     "approximant":    ["w", "j", "ɹ", "r"],
     "close_front":    ["iː", "i", "ɪ"],
@@ -104,7 +104,7 @@ ARTICULATORY_FEATURES: Dict[str, Tuple[int, int, int]] = {
     "t": (3, 0, 0), "d": (3, 0, 1), "n": (3, 3, 1),
     "s": (3, 1, 0), "z": (3, 1, 1), "l": (3, 5, 1),
     "ʃ": (4, 1, 0), "ʒ": (4, 1, 1), "tʃ": (4, 2, 0), "dʒ": (4, 2, 1),
-    "k": (6, 0, 0), "g": (6, 0, 1), "ŋ": (6, 3, 1),
+    "k": (6, 0, 0), "g": (6, 0, 1), "ɡ": (6, 0, 1), "ŋ": (6, 3, 1),
     "h": (7, 1, 0),
     "w": (0, 4, 1), "j": (5, 4, 1), "ɹ": (3, 4, 1), "r": (3, 4, 1),
     **{k: (8, 6, 1) for k in [
@@ -1163,7 +1163,8 @@ def evaluate(model, loader, criterion, device, id2tok) -> Tuple[Dict[str, float]
     return avg, all_preds, all_refs
 
 
-def phoneme_report(all_preds: List[str], all_refs: List[str], vocab: Sequence[str], output_dir: Path) -> None:
+def phoneme_report(all_preds: List[str], all_refs: List[str], vocab: Sequence[str], output_dir: Path,
+                   title: str = "Phoneme confusion matrix (fused AV model)") -> None:
     label_list = list(vocab)
     l2i = {l: i for i, l in enumerate(label_list)}
     n = len(label_list)
@@ -1244,7 +1245,7 @@ def phoneme_report(all_preds: List[str], all_refs: List[str], vocab: Sequence[st
     ax.set_xticks(range(n + 1)); ax.set_xticklabels(ticks, rotation=45, ha="right", fontsize=7)
     ax.set_yticks(range(n + 1)); ax.set_yticklabels(label_list + [INSERTION_TOKEN], fontsize=7)
     ax.set_xlabel("Predicted"); ax.set_ylabel("Actual")
-    ax.set_title("Phoneme confusion matrix (fused AV model)")
+    ax.set_title(title)
     fig.tight_layout()
     fig.savefig(output_dir / "confusion_matrix.png", dpi=150)
     plt.close(fig)
