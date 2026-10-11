@@ -46,6 +46,9 @@ av_fusion_results_clean_test/
 video_sweep_results/
 snr_sweep_plots/
 video_sweep_plots/
+baseline_noise_s1/
+baseline_results/
+external/
 
 # Python environment
 .venv/
