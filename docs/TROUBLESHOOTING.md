@@ -46,6 +46,10 @@ Use `--num-workers 0` if worker startup is slow or fails on Windows.
 
 The active extractor was checked with Transformers 5.2.0 and Hugging Face Hub 1.5.0. The `Wav2Vec2FeatureExtractor`, `Wav2Vec2ForCTC`, and `Wav2Vec2CTCTokenizer` APIs import successfully, and `extract_phonemes.py --help` runs. A full extraction still requires model download, eSpeak-NG, and usable GRID media.
 
+## Baseline comparison setup
+
+`run_baseline_comparison.py` needs the `allosaurus` package and third-party code and weights under `external/`; see the setup table in [EXPERIMENTS.md](EXPERIMENTS.md#third-party-setup). Run it with `--check-setup` and the same `--models` list first. That loads each checkpoint, decodes one clean clip zero-shot, and runs one corrupted forward pass, so a missing file or broken import fails in seconds rather than mid-training.
+
 ## Tests
 
 Install development dependencies and run:

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dvaporis/Talking-Heads/actions/workflows/ci.yml/badge.svg)](https://github.com/dvaporis/Talking-Heads/actions/workflows/ci.yml)
 
-This repository develops a **GRID-based visual phoneme prediction pipeline**: lip-crop video is converted into frame-aligned phoneme predictions, then decoded into words with GRID grammar. An optional audio-visual model studies robustness to controlled audio and video corruption.
+This repository develops a **GRID-based visual phoneme prediction pipeline**: lip-crop video is converted into frame-aligned phoneme predictions, then decoded into words with GRID grammar. An audio-visual extension fuses the lip video with the audio track, is tested under controlled audio and video corruption, and is compared against fine-tuned state-of-the-art audio-only and video-only recognisers.
 
 Older RAVDESS, reconstruction, contrastive-learning, alignment, and diffusion experiments are retained for provenance, but are not required for the active GRID pipeline.
 
@@ -14,9 +14,23 @@ The model predicts **set white with p 2 now** and renders the words at frame-der
 
 This is a qualitative single-clip proof of concept, not an additional aggregate metric.
 
+## Experiments
+
+The thesis evaluation ([`Report/Chapters/Evaluation.tex`](Report/Chapters/Evaluation.tex)) has three experiments, all on GRID speaker `s1`:
+
+| # | Experiment | What it covers | Entry points |
+| --- | --- | --- | --- |
+| 1 | Visual phoneme prediction from silent video | (1) Six-variant ablation study. (2) The selected model in depth, with GRID word decoding. | `ablation_experiment.py`, `train_lip_viseme.py` |
+| 2 | Audio-visual phoneme prediction under corruption | (1) Audio SNR sweep, audio-visual vs audio-only. (2) Video obstruction sweep, audio-visual vs video-only. | `run_av_fusion_snr_experiment.py`, `run_av_fusion_video_experiment.py` |
+| 3 | Comparison with state-of-the-art unimodal models | The audio-visual model against two audio-only and two video-only pretrained models, all fine-tuned on the same corrupted data. | `train_av_fusion.py`, `run_baseline_comparison.py` |
+
+Commands for each experiment are in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
+
 ## Results
 
-The reported evaluation uses the known GRID vocabulary and sentence grammar, so these results are not unrestricted-vocabulary lip reading.
+All results use GRID's fixed vocabulary and sentence grammar, so they are not unrestricted-vocabulary lip reading. The full figure collection is in [`Report/figures`](Report/figures).
+
+### Experiment 1: visual phoneme prediction
 
 | Metric | Result | Scope |
 | --- | ---: | --- |
@@ -25,17 +39,9 @@ The reported evaluation uses the known GRID vocabulary and sentence grammar, so 
 | Main-run phoneme TER | **12.41%** | Separate constrained visual evaluation run. |
 | Best ablation frame accuracy | **84.74%** | BiLSTM full-loss baseline, before collapsing repeated frame labels into a sequence. |
 
-### Figures
-
 ![Test phoneme confusion matrix](Report/figures/constrained_confusion_matrix.png)
 
-![Test TER versus audio SNR](Report/figures/test_ter_vs_snr_db.png)
-
-![Test TER versus video obstruction](Report/figures/test_ter_vs_video_obstruct_frames.png)
-
-The full collection is in [`Report/figures`](Report/figures).
-
-### Ablation summary
+#### Ablation summary
 
 | Variant | Test TER | Test frame accuracy | Validation-accuracy AUC* |
 | --- | ---: | ---: | ---: |
@@ -50,9 +56,38 @@ The full collection is in [`Report/figures`](Report/figures).
 
 The 12.41% main-run TER and 0.1219 ablation-baseline TER are **different runs**, not contradictory values. The ablation baseline was retrained as V1 with its own output directory and conditions. Ablation results are single runs, so the 0.007-point difference between soft full loss and hard targets is not evidence of a statistically reliable advantage. The clearer result is the sequence-encoder ablation: BiLSTM TER 0.1219 versus projection-only TER 0.2464. CTC-only also illustrates an objective trade-off: sequence TER is 0.1869 while frame accuracy is 0.4743 because CTC optimizes collapsed sequence structure rather than framewise labels.
 
+### Experiment 2: audio-visual fusion under corruption
+
+Each sweep trains the audio-visual model and a single-modality version of the same model on corrupted audio and video. The SNR sweep sets the audio to −5, 0, 5, 10 and 15 dB SNR, with about 30 of each clip's 75 video frames obstructed. The obstruction sweep obstructs 10, 15, 20, 25 or 30 frames, with the audio fixed at 15 dB SNR. In both sweeps the audio-visual model reaches a lower best validation TER than the single-modality model at every setting. Its audio gate rises as the audio gets cleaner or more video frames are obstructed.
+
+![Test TER versus audio SNR](Report/figures/test_ter_vs_snr_db.png)
+
+![Test TER versus video obstruction](Report/figures/test_ter_vs_video_obstruct_frames.png)
+
+### Experiment 3: comparison with state-of-the-art unimodal models
+
+Four publicly available pretrained models were fine-tuned on the same corrupted data, split, 32-phoneme vocabulary, loss and TER metric as the proposed audio-visual model. Every clip has additive white or babble noise at 0 dB SNR. 31.1% of clips also have a 0.6 s (15-frame) audio dropout. Every clip has one contiguous 25-frame video span that is zeroed, frozen or blurred.
+
+| Model | Input | Parameters (trainable) | Epochs run (best) | Val TER | Test TER | ΔTER vs AV [95% CI] | AV better / worse / tie (clips) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Proposed audio-visual** | audio + video | **3.6M** | 92 (80) | **0.144** | **0.171** | — | — |
+| [Allosaurus](https://github.com/xinjli/allosaurus) (eng2102) | audio | 10.8M | 63 (51) | 0.184 | 0.186 | +0.014 [−0.013, +0.043] | 58 / 61 / 31 |
+| [icefall](https://github.com/k2-fsa/icefall) TDNN-LSTM-CTC (TIMIT) | audio | 10.9M | 78 (66) | 0.235 | 0.251 | +0.079 [+0.054, +0.105] | 96 / 32 / 22 |
+| [LipNet](https://github.com/VIPL-Audio-Visual-Speech-Understanding/LipNet-PyTorch) | video | 6.6M | 83 (71) | 0.298 | 0.335 | +0.164 [+0.135, +0.194] | 115 / 16 / 19 |
+| [Auto-AVSR](https://github.com/mpc001/auto_avsr) (VSR, CTC path) | video | 182.1M (28.4M) | 58 (46) | 0.311 | 0.363 | +0.192 [+0.165, +0.220] | 126 / 13 / 11 |
+
+ΔTER is each model's test TER minus the audio-visual model's, with a 95% paired-bootstrap confidence interval (10,000 resamples of the 150 test clips). The last column counts the test clips on which the audio-visual model made fewer, more or equal phoneme errors.
+
+The audio-visual model has the best validation and test TER while being the smallest model. Its lead over Allosaurus is not significant: the interval includes zero, and the per-clip record is nearly even. It is clearly better than icefall, LipNet and Auto-AVSR. The audio-only models beat both video-only models, consistent with visual speech recognition being the harder task. When reading the table, keep in mind:
+
+- The audio-visual model receives the per-frame audio and video reliability signals as input; the baselines do not.
+- Auto-AVSR is the only baseline whose fine-tuning setup was tuned. Six configurations were compared on validation TER; the reported one trains the top 2 Conformer blocks with Auto-AVSR's native augmentation. The other baselines were fine-tuned end to end.
+- LipNet was pretrained on other GRID speakers (not `s1`); Auto-AVSR was pretrained on LRS2, LRS3, VoxCeleb2 and AVSpeech with a different crop style.
+- This is a single speaker and a single corruption level, evaluated at the phoneme level only (no WER).
+
 ## Evaluation scope
 
-The archived results use 1,000 paired clips from GRID speaker `s1`. The visual trainer uses a seeded random shuffle with `seed=42`, then a 70/15/15 within-speaker split:
+The archived results use 1,000 paired clips from GRID speaker `s1`. The visual and audio-visual trainers both use a seeded random shuffle with `seed=42`, then a 70/15/15 within-speaker split. Experiment 3 reuses the audio-visual trainer's split for every model:
 
 | Split | Clips |
 | --- | ---: |
@@ -79,7 +114,9 @@ checkpoints, metrics, and plots
 
 `extract_phonemes.py` decodes six-character GRID stems, creates canonical eSpeak phonemes, runs wav2vec2 forced alignment, and converts timings to 25 FPS frame labels. The CSV is the shared contract for visual training and audio-visual fusion.
 
-The active entry points are `crop_lips.py`, `save_all_lip_videos.py`, `extract_phonemes.py`, `train_lip_viseme.py`, `train_av_fusion.py`, `add_av_noise.py`, `precompute_mel_spectograms.py`, `ablation_experiment.py`, `evaluate_lip_lstm.py`, the two AV sweep runners, and the plotting/augmentation helpers.
+The active entry points are `crop_lips.py`, `save_all_lip_videos.py`, `extract_phonemes.py`, `train_lip_viseme.py`, `train_av_fusion.py`, `add_av_noise.py`, `precompute_mel_spectograms.py`, `ablation_experiment.py`, `evaluate_lip_lstm.py`, the two AV sweep runners, `run_baseline_comparison.py`, and the plotting/augmentation helpers.
+
+`run_baseline_comparison.py` imports the sample pairing, split, vocabulary, loss and TER decoding from `train_av_fusion.py`, so the Experiment 3 baselines share the audio-visual model's data, targets and metric.
 
 ## Installation and usage
 
@@ -99,7 +136,7 @@ py -3.11 -m venv .venv
 python -m pip install -r requirements-core.txt
 ```
 
-The active pipeline also needs FFmpeg, eSpeak-NG, a compatible PyTorch build, and GRID videos under `s1/`. For the complete visual and AV command sequence, see [`docs/QUICKSTART.md`](docs/QUICKSTART.md). For sweeps, ablations, and split details, see [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md). For debugging, see [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md).
+The active pipeline also needs FFmpeg, eSpeak-NG, a compatible PyTorch build, and GRID videos under `s1/`. Experiment 3 additionally needs the `allosaurus` package and third-party code and weights under the git-ignored `external/` folder; these keep their own licences and are not part of the core requirements. For the complete visual and AV command sequence, see [`docs/QUICKSTART.md`](docs/QUICKSTART.md). For the per-experiment commands, baseline setup, and split details, see [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md). For debugging, see [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md).
 
 The dependency files are intentionally split:
 

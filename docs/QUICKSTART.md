@@ -120,4 +120,4 @@ python train_av_fusion.py \
     --output-dir av_fusion_results
 ```
 
-See [EXPERIMENTS.md](EXPERIMENTS.md) for ablations and SNR/video-corruption sweeps.
+See [EXPERIMENTS.md](EXPERIMENTS.md) for the three thesis experiments: the ablation, the SNR and video-corruption sweeps, and the comparison with state-of-the-art audio-only and video-only models.

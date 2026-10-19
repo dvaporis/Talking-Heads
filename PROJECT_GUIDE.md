@@ -2,7 +2,7 @@
 
 ## Project focus
 
-The current project is a **GRID-based visual phoneme prediction system**. It learns to predict a time-aligned phoneme label for each video frame from lip-crop videos, with optional audio-visual fusion for robustness to corrupted audio and video.
+The current project is a **GRID-based visual phoneme prediction system**. It learns to predict a time-aligned phoneme label for each video frame from lip-crop videos, with optional audio-visual fusion for robustness to corrupted audio and video. The fused model is also compared against fine-tuned state-of-the-art audio-only and video-only models (Experiment 3 in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)).
 
 The main data path is:
 
@@ -38,6 +38,7 @@ These are the scripts that belong to the final GRID/phoneme-prediction workflow.
 - `evaluate_lip_lstm.py`: evaluates a visual checkpoint and synthesises duration-aligned audio examples.
 - `run_av_fusion_snr_experiment.py`: sweeps audio corruption severity.
 - `run_av_fusion_video_experiment.py`: sweeps video obstruction length.
+- `run_baseline_comparison.py`: fine-tunes the state-of-the-art audio-only and video-only baselines (Allosaurus, icefall, LipNet, Auto-AVSR) on the same corrupted data as `train_av_fusion.py`.
 
 ### Plotting and augmentation inspection
 
@@ -70,6 +71,8 @@ Other exploratory models, including diffusion, video contrastive learning, frame
 - `viseme_results/`: visual phoneme-model checkpoints, histories, reports, and plots.
 - `av_noise_s1/`, `av_fusion_results/`: audio-visual corruption manifests and fusion runs.
 - `ablation_results/`, `snr_sweep_results/`, `video_sweep_results/`: experiment outputs.
+- `baseline_noise_s1/`, `baseline_results/`: the fixed-corruption set and the runs of the state-of-the-art comparison (audio-visual model and baselines).
+- `external/`: third-party baseline code and weights, not tracked by git.
 - `Report/`: thesis report material, separate from executable pipeline code.
 
 ## Why the Python files remain at the repository root
