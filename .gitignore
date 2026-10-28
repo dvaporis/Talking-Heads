@@ -108,4 +108,8 @@ Thumbs.db
 *.nav
 *.snm
 *.vrb
+*.xdv
+*.synctex(busy)
+*.run.xml
+*.bcf
 Report/Thesis.synctex.gz
